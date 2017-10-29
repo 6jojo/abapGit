@@ -37357,8 +37357,8 @@ CLASS lcl_object_webi IMPLEMENTATION.
           li_vi      TYPE REF TO if_ws_md_vif,
           lv_name    TYPE vepname.
 
-    FIELD-SYMBOLS: <ls_header> LIKE LINE OF ls_webi-pvepheader.
-
+    FIELD-SYMBOLS: <ls_header>   LIKE LINE OF ls_webi-pvepheader,
+                   <ls_endpoint> LIKE LINE OF ls_webi-pvependpoint.
 
     CALL FUNCTION 'WEBI_GET_OBJECT'
       EXPORTING
@@ -37411,6 +37411,10 @@ CLASS lcl_object_webi IMPLEMENTATION.
       CLEAR <ls_header>-text_id.
       CLEAR <ls_header>-utime.
       CLEAR <ls_header>-wsint_version.
+    ENDLOOP.
+
+    LOOP AT ls_webi-pvependpoint ASSIGNING <ls_endpoint>.
+      CLEAR: <ls_endpoint>-clustd.
     ENDLOOP.
 
     io_xml->add( iv_name = 'WEBI'
@@ -54874,5 +54878,5 @@ AT SELECTION-SCREEN.
   ENDIF.
 
 ****************************************************
-* abapmerge - 2017-10-29T06:06:19.948Z
+* abapmerge - 2017-10-29T06:11:58.388Z
 ****************************************************
