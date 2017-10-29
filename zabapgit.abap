@@ -30,39 +30,51 @@ SELECTION-SCREEN BEGIN OF SCREEN 1001.
 * dummy for triggering screen on Java SAP GUI
 SELECTION-SCREEN END OF SCREEN 1001.
 
-CLASS zcx_abapgit_exception DEFINITION
-  inheriting from CX_STATIC_CHECK
-  create public .
+CLASS zcx_abapgit_cancel DEFINITION
+  INHERITING FROM cx_static_check
+  FINAL
+  CREATE PUBLIC .
 
-public section.
-
-  data TEXT type STRING .
-
-  methods CONSTRUCTOR
-    importing
-      !TEXTID like TEXTID optional
-      !PREVIOUS like PREVIOUS optional
-      !TEXT type STRING optional .
-  class-methods RAISE
-    importing
-      !IV_TEXT type CLIKE
-    raising
-      ZCX_ABAPGIT_EXCEPTION .
-protected section.
-private section.
+  PUBLIC SECTION.
+  PROTECTED SECTION.
+  PRIVATE SECTION.
 ENDCLASS.
-CLASS ZCX_ABAPGIT_EXCEPTION IMPLEMENTATION.
+CLASS zcx_abapgit_cancel IMPLEMENTATION.
+ENDCLASS.
 
+CLASS zcx_abapgit_exception DEFINITION
+  INHERITING FROM cx_static_check
+  CREATE PUBLIC .
 
-  method CONSTRUCTOR ##ADT_SUPPRESS_GENERATION.
-CALL METHOD SUPER->CONSTRUCTOR
-EXPORTING
-TEXTID = TEXTID
-PREVIOUS = PREVIOUS
-.
-me->TEXT = TEXT .
-  endmethod.
+  PUBLIC SECTION.
 
+    DATA text TYPE string .
+
+    METHODS constructor
+      IMPORTING
+        !textid   LIKE textid OPTIONAL
+        !previous LIKE previous OPTIONAL
+        !text     TYPE string OPTIONAL.
+
+    CLASS-METHODS raise
+      IMPORTING
+        !iv_text TYPE clike
+      RAISING
+        zcx_abapgit_exception.
+
+ENDCLASS.
+CLASS zcx_abapgit_exception IMPLEMENTATION.
+
+  METHOD constructor ##ADT_SUPPRESS_GENERATION.
+
+    CALL METHOD super->constructor
+      EXPORTING
+        textid   = textid
+        previous = previous.
+
+    me->text = text .
+
+  ENDMETHOD.
 
   METHOD raise.
 
@@ -71,6 +83,19 @@ me->TEXT = TEXT .
         text = iv_text.
 
   ENDMETHOD.
+
+ENDCLASS.
+
+CLASS zcx_abapgit_not_found DEFINITION
+  INHERITING FROM cx_static_check
+  FINAL
+  CREATE PUBLIC .
+
+  PUBLIC SECTION.
+  PROTECTED SECTION.
+  PRIVATE SECTION.
+ENDCLASS.
+CLASS zcx_abapgit_not_found IMPLEMENTATION.
 ENDCLASS.
 
 CLASS zcl_abapgit_time DEFINITION DEFERRED.
@@ -1082,42 +1107,6 @@ ENDCLASS. " lcl_password_dialog IMPLEMENTATION
 *&---------------------------------------------------------------------*
 *&  Include           ZABAPGIT_MACROS
 *&---------------------------------------------------------------------*
-
-
-****************************************************
-* abapmerge - ZABAPGIT_EXCEPTIONS
-****************************************************
-*&---------------------------------------------------------------------*
-*&  Include           ZABAPGIT_EXCEPTIONS
-*&---------------------------------------------------------------------*
-
-*----------------------------------------------------------------------*
-*       CLASS LCX_NOT_FOUND DEFINITION
-*----------------------------------------------------------------------*
-CLASS lcx_not_found DEFINITION INHERITING FROM cx_static_check FINAL.
-
-ENDCLASS.                    "CX_LOCAL_EXCEPTION DEFINITION
-
-*----------------------------------------------------------------------*
-*       CLASS LCX_NOT_FOUND IMPLEMENTATION
-*----------------------------------------------------------------------*
-CLASS lcx_not_found IMPLEMENTATION.
-
-ENDCLASS.                    "lcx_not_found IMPLEMENTATION
-
-*----------------------------------------------------------------------*
-*       CLASS LCX_CANCEL DEFINITION
-*----------------------------------------------------------------------*
-CLASS lcx_cancel DEFINITION INHERITING FROM cx_static_check FINAL.
-
-ENDCLASS.                    "lcx_cancel DEFINITION
-
-*----------------------------------------------------------------------*
-*       CLASS LCX_CANCEL IMPLEMENTATION
-*----------------------------------------------------------------------*
-CLASS lcx_cancel IMPLEMENTATION.
-
-ENDCLASS.                    "lcx_cancel IMPLEMENTATION
 
 
 ****************************************************
@@ -4435,7 +4424,7 @@ CLASS lcl_persistence_db DEFINITION FINAL CREATE PRIVATE FRIENDS lcl_app.
         IMPORTING iv_type        TYPE ty_type
                   iv_value       TYPE ty_content-value
         RETURNING VALUE(rv_data) TYPE ty_content-data_str
-        RAISING   lcx_not_found,
+        RAISING   zcx_abapgit_not_found,
       lock
         IMPORTING iv_mode  TYPE enqmode DEFAULT 'E'
                   iv_type  TYPE ty_type
@@ -4539,7 +4528,7 @@ CLASS lcl_persistence_repo DEFINITION FINAL.
       IMPORTING iv_key         TYPE ty_repo-key
       RETURNING VALUE(rs_repo) TYPE ty_repo
       RAISING   zcx_abapgit_exception
-                lcx_not_found.
+                zcx_abapgit_not_found.
 
     METHODS lock
       IMPORTING iv_mode TYPE enqmode
@@ -4798,7 +4787,7 @@ CLASS lcl_persist_background IMPLEMENTATION.
     TRY.
         mo_db->read( iv_type  = c_type
                      iv_value = iv_key ).
-      CATCH lcx_not_found.
+      CATCH zcx_abapgit_not_found.
         RETURN.
     ENDTRY.
 
@@ -5032,7 +5021,7 @@ CLASS lcl_persistence_user IMPLEMENTATION.
         lv_xml = lcl_app=>db( )->read(
           iv_type  = c_type_user
           iv_value = mv_user ).
-      CATCH lcx_not_found.
+      CATCH zcx_abapgit_not_found.
         RETURN.
     ENDTRY.
 
@@ -5414,7 +5403,7 @@ CLASS lcl_persistence_db IMPLEMENTATION.
       WHERE type = iv_type
       AND value = iv_value.                               "#EC CI_SUBRC
     IF sy-subrc <> 0.
-      RAISE EXCEPTION TYPE lcx_not_found.
+      RAISE EXCEPTION TYPE zcx_abapgit_not_found.
     ENDIF.
 
   ENDMETHOD.
@@ -5462,7 +5451,7 @@ CLASS lcl_persistence_repo IMPLEMENTATION.
 
     TRY.
         ls_repo = read( iv_key ).
-      CATCH lcx_not_found.
+      CATCH zcx_abapgit_not_found.
         zcx_abapgit_exception=>raise( 'key not found' ).
     ENDTRY.
 
@@ -5498,7 +5487,7 @@ CLASS lcl_persistence_repo IMPLEMENTATION.
 
     TRY.
         ls_repo = read( iv_key ).
-      CATCH lcx_not_found.
+      CATCH zcx_abapgit_not_found.
         zcx_abapgit_exception=>raise( 'key not found' ).
     ENDTRY.
 
@@ -5526,7 +5515,7 @@ CLASS lcl_persistence_repo IMPLEMENTATION.
 
     TRY.
         ls_repo = read( iv_key ).
-      CATCH lcx_not_found.
+      CATCH zcx_abapgit_not_found.
         zcx_abapgit_exception=>raise( 'key not found' ).
     ENDTRY.
 
@@ -5550,7 +5539,7 @@ CLASS lcl_persistence_repo IMPLEMENTATION.
 
     TRY.
         ls_repo = read( iv_key ).
-      CATCH lcx_not_found.
+      CATCH zcx_abapgit_not_found.
         zcx_abapgit_exception=>raise( 'key not found' ).
     ENDTRY.
 
@@ -5574,7 +5563,7 @@ CLASS lcl_persistence_repo IMPLEMENTATION.
 
     TRY.
         ls_repo = read( iv_key ).
-      CATCH lcx_not_found.
+      CATCH zcx_abapgit_not_found.
         zcx_abapgit_exception=>raise( 'key not found' ).
     ENDTRY.
 
@@ -5597,7 +5586,7 @@ CLASS lcl_persistence_repo IMPLEMENTATION.
 
     TRY.
         ls_repo = read( iv_key ).
-      CATCH lcx_not_found.
+      CATCH zcx_abapgit_not_found.
         zcx_abapgit_exception=>raise( 'key not found' ).
     ENDTRY.
 
@@ -5621,7 +5610,7 @@ CLASS lcl_persistence_repo IMPLEMENTATION.
 
     TRY.
         ls_repo = read( iv_key ).
-      CATCH lcx_not_found.
+      CATCH zcx_abapgit_not_found.
         zcx_abapgit_exception=>raise( 'key not found' ).
     ENDTRY.
 
@@ -5642,7 +5631,7 @@ CLASS lcl_persistence_repo IMPLEMENTATION.
 
     READ TABLE lt_repo INTO rs_repo WITH KEY key = iv_key.
     IF sy-subrc <> 0.
-      RAISE EXCEPTION TYPE lcx_not_found.
+      RAISE EXCEPTION TYPE zcx_abapgit_not_found.
     ENDIF.
 
   ENDMETHOD.
@@ -5763,7 +5752,7 @@ CLASS lcl_persist_migrate IMPLEMENTATION.
           iv_type  = 'SETTINGS'
           iv_value = '' ).
         rv_exists = abap_true.
-      CATCH lcx_not_found.
+      CATCH zcx_abapgit_not_found.
         rv_exists = abap_false.
     ENDTRY.
   ENDMETHOD.
@@ -5792,7 +5781,7 @@ CLASS lcl_persist_migrate IMPLEMENTATION.
           lcl_app=>db( )->read(
             iv_type  = 'SETTINGS'
             iv_value = 'PROXY_URL' ) ).
-      CATCH lcx_not_found.
+      CATCH zcx_abapgit_not_found.
     ENDTRY.
 
     TRY.
@@ -5800,7 +5789,7 @@ CLASS lcl_persist_migrate IMPLEMENTATION.
           lcl_app=>db( )->read(
             iv_type  = 'SETTINGS'
             iv_value = 'PROXY_PORT' ) ).
-      CATCH lcx_not_found.
+      CATCH zcx_abapgit_not_found.
     ENDTRY.
 
     TRY.
@@ -5808,7 +5797,7 @@ CLASS lcl_persist_migrate IMPLEMENTATION.
           iv_type  = 'SETTINGS'
           iv_value = 'PROXY_AUTH' ).
         lr_settings->set_proxy_authentication( lv_flag ).
-      CATCH lcx_not_found.
+      CATCH zcx_abapgit_not_found.
     ENDTRY.
 
     TRY.
@@ -5817,7 +5806,7 @@ CLASS lcl_persist_migrate IMPLEMENTATION.
            iv_value = 'CRIT_TESTS' ).
         lv_critical_tests_as_boolean = lv_critical_tests_as_string.
         lr_settings->set_run_critical_tests( lv_critical_tests_as_boolean ).
-      CATCH lcx_not_found.
+      CATCH zcx_abapgit_not_found.
     ENDTRY.
 
     TRY.
@@ -5826,7 +5815,7 @@ CLASS lcl_persist_migrate IMPLEMENTATION.
            iv_value = 'MAX_LINES' ).
         lv_max_lines_as_integer = lv_max_lines_as_string.
         lr_settings->set_max_lines( lv_max_lines_as_integer ).
-      CATCH lcx_not_found cx_sy_conversion_no_number.
+      CATCH zcx_abapgit_not_found cx_sy_conversion_no_number.
     ENDTRY.
 
     TRY.
@@ -5835,7 +5824,7 @@ CLASS lcl_persist_migrate IMPLEMENTATION.
            iv_value = 'ADT_JUMP' ).
         lv_adt_jump_enabled_as_boolean = lv_adt_jump_enabled_as_string.
         lr_settings->set_adt_jump_enanbled( lv_adt_jump_enabled_as_boolean ).
-      CATCH lcx_not_found.
+      CATCH zcx_abapgit_not_found.
     ENDTRY.
 
     TRY.
@@ -5844,7 +5833,7 @@ CLASS lcl_persist_migrate IMPLEMENTATION.
            iv_value = 'COMMENT_LEN' ).
         lv_i_param_value = lv_s_param_value.
         lr_settings->set_commitmsg_comment_length( lv_i_param_value ).
-      CATCH lcx_not_found cx_sy_conversion_no_number.
+      CATCH zcx_abapgit_not_found cx_sy_conversion_no_number.
     ENDTRY.
 
     TRY.
@@ -5853,7 +5842,7 @@ CLASS lcl_persist_migrate IMPLEMENTATION.
            iv_value = 'BODY_SIZE' ).
         lv_i_param_value = lv_s_param_value.
         lr_settings->set_commitmsg_body_size( lv_i_param_value ).
-      CATCH lcx_not_found cx_sy_conversion_no_number.
+      CATCH zcx_abapgit_not_found cx_sy_conversion_no_number.
     ENDTRY.
 
     lr_persist_settings->modify( io_settings = lr_settings ).
@@ -6256,7 +6245,7 @@ CLASS lcl_persist_settings IMPLEMENTATION.
           lcl_app=>db( )->read( iv_type  = lcl_settings=>c_dbtype_settings
                                 iv_value = '' ) ).
 
-      CATCH lcx_not_found zcx_abapgit_exception.
+      CATCH zcx_abapgit_not_found zcx_abapgit_exception.
 
         ro_settings->set_defaults( ).
 
@@ -14998,7 +14987,7 @@ CLASS lcl_popups DEFINITION FINAL.
         IMPORTING it_transport_headers       TYPE trwbo_request_headers
         RETURNING VALUE(rs_transport_branch) TYPE zif_abapgit_definitions=>ty_transport_to_branch
         RAISING   zcx_abapgit_exception
-                  lcx_cancel,
+                  zcx_abapgit_cancel,
       popup_to_select_transports
         RETURNING VALUE(rt_trkorr) TYPE trwbo_request_headers,
       popup_to_select_from_list
@@ -15683,7 +15672,7 @@ CLASS lcl_popups IMPLEMENTATION.
     ENDIF.
 
     IF lv_returncode = 'A'.
-      RAISE EXCEPTION TYPE lcx_cancel.
+      RAISE EXCEPTION TYPE zcx_abapgit_cancel.
     ENDIF.
 
     READ TABLE lt_fields INDEX 1 ASSIGNING <ls_field>.
@@ -16001,10 +15990,10 @@ CLASS lcl_zip DEFINITION FINAL.
       RAISING   zcx_abapgit_exception.
 
     CLASS-METHODS export_package
-      RAISING zcx_abapgit_exception lcx_cancel.
+      RAISING zcx_abapgit_exception zcx_abapgit_cancel.
 
     CLASS-METHODS export_object
-      RAISING zcx_abapgit_exception lcx_cancel.
+      RAISING zcx_abapgit_exception zcx_abapgit_cancel.
 
   PRIVATE SECTION.
     CLASS-METHODS file_upload
@@ -16377,7 +16366,7 @@ CLASS lcl_zip IMPLEMENTATION.
         ev_package      = ls_data-package
         ev_folder_logic = ls_data-dot_abapgit-folder_logic ).
     IF ls_data-package IS INITIAL.
-      RAISE EXCEPTION TYPE lcx_cancel.
+      RAISE EXCEPTION TYPE zcx_abapgit_cancel.
     ENDIF.
 
     CREATE OBJECT lo_repo
@@ -16405,7 +16394,7 @@ CLASS lcl_zip IMPLEMENTATION.
 
     ls_tadir = lcl_popups=>popup_object( ).
     IF ls_tadir IS INITIAL.
-      RAISE EXCEPTION TYPE lcx_cancel.
+      RAISE EXCEPTION TYPE zcx_abapgit_cancel.
     ENDIF.
 
     ls_item-obj_type = ls_tadir-object.
@@ -30508,7 +30497,7 @@ CLASS lcl_object_smim DEFINITION INHERITING FROM lcl_objects_super FINAL.
     METHODS get_url_for_io
       EXPORTING ev_url       TYPE string
                 ev_is_folder TYPE boole_d
-      RAISING   lcx_not_found
+      RAISING   zcx_abapgit_not_found
                 zcx_abapgit_exception.
 
 ENDCLASS.                    "lcl_object_smim DEFINITION
@@ -30572,7 +30561,7 @@ CLASS lcl_object_smim IMPLEMENTATION.
     SELECT SINGLE * FROM smimloio INTO ls_smimloio
       WHERE loio_id = lv_loio.                          "#EC CI_GENBUFF
     IF sy-subrc <> 0.
-      RAISE EXCEPTION TYPE lcx_not_found.
+      RAISE EXCEPTION TYPE zcx_abapgit_not_found.
     ENDIF.
 
     IF ls_smimloio-lo_class = wbmr_c_skwf_folder_class.
@@ -30658,7 +30647,7 @@ CLASS lcl_object_smim IMPLEMENTATION.
           IMPORTING
             ev_url       = lv_url
             ev_is_folder = lv_folder ).
-      CATCH lcx_not_found.
+      CATCH zcx_abapgit_not_found.
         RETURN.
     ENDTRY.
 
@@ -30786,7 +30775,7 @@ CLASS lcl_object_smim IMPLEMENTATION.
         get_url_for_io(
           IMPORTING
             ev_url  = lv_url ).
-      CATCH lcx_not_found.
+      CATCH zcx_abapgit_not_found.
         RETURN.
     ENDTRY.
 
@@ -34239,7 +34228,7 @@ CLASS lcl_object_type DEFINITION INHERITING FROM lcl_objects_super FINAL.
       EXPORTING ev_ddtext TYPE ddtypet-ddtext
                 et_source TYPE abaptxt255_tab
       RAISING   zcx_abapgit_exception
-                lcx_not_found.
+                zcx_abapgit_not_found.
 
     METHODS create
       IMPORTING iv_ddtext   TYPE ddtypet-ddtext
@@ -34273,7 +34262,7 @@ CLASS lcl_object_type IMPLEMENTATION.
     TRY.
         read( ).
         rv_bool = abap_true.
-      CATCH lcx_not_found zcx_abapgit_exception.
+      CATCH zcx_abapgit_not_found zcx_abapgit_exception.
         rv_bool = abap_false.
     ENDTRY.
 
@@ -34292,7 +34281,7 @@ CLASS lcl_object_type IMPLEMENTATION.
       WHERE typegroup = ms_item-obj_name
       AND ddlanguage = mv_language.
     IF sy-subrc <> 0.
-      RAISE EXCEPTION TYPE lcx_not_found.
+      RAISE EXCEPTION TYPE zcx_abapgit_not_found.
     ENDIF.
 
     lv_typdname = ms_item-obj_name.
@@ -34324,7 +34313,7 @@ CLASS lcl_object_type IMPLEMENTATION.
         read( IMPORTING
                 ev_ddtext = lv_ddtext
                 et_source = lt_source ).
-      CATCH lcx_not_found.
+      CATCH zcx_abapgit_not_found.
         RETURN.
     ENDTRY.
 
@@ -38930,7 +38919,7 @@ CLASS lcl_repo_srv IMPLEMENTATION.
       is_dot_abapgit = lcl_dot_abapgit=>build_default( )->get_data( ) ).
     TRY.
         ls_repo = mo_persistence->read( lv_key ).
-      CATCH lcx_not_found.
+      CATCH zcx_abapgit_not_found.
         zcx_abapgit_exception=>raise( 'new_online not found' ).
     ENDTRY.
 
@@ -38959,7 +38948,7 @@ CLASS lcl_repo_srv IMPLEMENTATION.
 
     TRY.
         ls_repo = mo_persistence->read( lv_key ).
-      CATCH lcx_not_found.
+      CATCH zcx_abapgit_not_found.
         zcx_abapgit_exception=>raise( 'new_offline not found' ).
     ENDTRY.
 
@@ -39750,29 +39739,29 @@ CLASS lcl_services_git DEFINITION FINAL.
 
     CLASS-METHODS pull
       IMPORTING iv_key TYPE lcl_persistence_repo=>ty_repo-key
-      RAISING   zcx_abapgit_exception lcx_cancel.
+      RAISING   zcx_abapgit_exception zcx_abapgit_cancel.
 
     CLASS-METHODS reset
       IMPORTING iv_key TYPE lcl_persistence_repo=>ty_repo-key
-      RAISING   zcx_abapgit_exception lcx_cancel.
+      RAISING   zcx_abapgit_exception zcx_abapgit_cancel.
 
     CLASS-METHODS create_branch
       IMPORTING iv_key TYPE lcl_persistence_repo=>ty_repo-key
-      RAISING   zcx_abapgit_exception lcx_cancel.
+      RAISING   zcx_abapgit_exception zcx_abapgit_cancel.
 
     CLASS-METHODS switch_branch
       IMPORTING iv_key TYPE lcl_persistence_repo=>ty_repo-key
-      RAISING   zcx_abapgit_exception lcx_cancel.
+      RAISING   zcx_abapgit_exception zcx_abapgit_cancel.
 
     CLASS-METHODS delete_branch
       IMPORTING iv_key TYPE lcl_persistence_repo=>ty_repo-key
-      RAISING   zcx_abapgit_exception lcx_cancel.
+      RAISING   zcx_abapgit_exception zcx_abapgit_cancel.
 
     CLASS-METHODS commit
       IMPORTING io_repo   TYPE REF TO lcl_repo_online
                 is_commit TYPE ty_commit_fields
                 io_stage  TYPE REF TO lcl_stage
-      RAISING   zcx_abapgit_exception lcx_cancel.
+      RAISING   zcx_abapgit_exception zcx_abapgit_cancel.
 
 ENDCLASS. " lcl_services_git
 
@@ -39803,7 +39792,7 @@ CLASS lcl_services_git IMPLEMENTATION.
       display_cancel_button = abap_false ).                 "#EC NOTEXT
 
     IF lv_answer = '2'.
-      RAISE EXCEPTION TYPE lcx_cancel.
+      RAISE EXCEPTION TYPE zcx_abapgit_cancel.
     ENDIF.
 
     lt_unnecessary_local_objs = lo_repo->get_unnecessary_local_objs( ).
@@ -39848,7 +39837,7 @@ CLASS lcl_services_git IMPLEMENTATION.
         ev_name   = lv_name
         ev_cancel = lv_cancel ).
     IF lv_cancel = abap_true.
-      RAISE EXCEPTION TYPE lcx_cancel.
+      RAISE EXCEPTION TYPE zcx_abapgit_cancel.
     ENDIF.
 
     ASSERT lv_name CP 'refs/heads/+*'.
@@ -39895,7 +39884,7 @@ CLASS lcl_services_git IMPLEMENTATION.
       iv_default_branch  = lo_repo->get_branch_name( )
       iv_show_new_option = abap_true ).
     IF ls_branch IS INITIAL.
-      RAISE EXCEPTION TYPE lcx_cancel.
+      RAISE EXCEPTION TYPE zcx_abapgit_cancel.
     ENDIF.
 
     IF ls_branch-name = lcl_popups=>c_new_branch_label.
@@ -39921,7 +39910,7 @@ CLASS lcl_services_git IMPLEMENTATION.
 
     ls_branch = lcl_popups=>branch_list_popup( lo_repo->get_url( ) ).
     IF ls_branch IS INITIAL.
-      RAISE EXCEPTION TYPE lcx_cancel.
+      RAISE EXCEPTION TYPE zcx_abapgit_cancel.
     ENDIF.
 
     IF ls_branch-name = 'HEAD'.
@@ -39991,7 +39980,7 @@ CLASS lcl_services_repo DEFINITION FINAL.
   PUBLIC SECTION.
     CLASS-METHODS clone
       IMPORTING iv_url TYPE string
-      RAISING   zcx_abapgit_exception lcx_cancel.
+      RAISING   zcx_abapgit_exception zcx_abapgit_cancel.
 
     CLASS-METHODS refresh
       IMPORTING iv_key TYPE lcl_persistence_repo=>ty_repo-key
@@ -39999,30 +39988,30 @@ CLASS lcl_services_repo DEFINITION FINAL.
 
     CLASS-METHODS remove
       IMPORTING iv_key TYPE lcl_persistence_repo=>ty_repo-key
-      RAISING   zcx_abapgit_exception lcx_cancel.
+      RAISING   zcx_abapgit_exception zcx_abapgit_cancel.
 
     CLASS-METHODS purge
       IMPORTING iv_key TYPE lcl_persistence_repo=>ty_repo-key
-      RAISING   zcx_abapgit_exception lcx_cancel.
+      RAISING   zcx_abapgit_exception zcx_abapgit_cancel.
 
     CLASS-METHODS new_offline
-      RAISING zcx_abapgit_exception lcx_cancel.
+      RAISING zcx_abapgit_exception zcx_abapgit_cancel.
 
     CLASS-METHODS remote_attach
       IMPORTING iv_key TYPE lcl_persistence_repo=>ty_repo-key
-      RAISING   zcx_abapgit_exception lcx_cancel.
+      RAISING   zcx_abapgit_exception zcx_abapgit_cancel.
 
     CLASS-METHODS remote_detach
       IMPORTING iv_key TYPE lcl_persistence_repo=>ty_repo-key
-      RAISING   zcx_abapgit_exception lcx_cancel.
+      RAISING   zcx_abapgit_exception zcx_abapgit_cancel.
 
     CLASS-METHODS remote_change
       IMPORTING iv_key TYPE lcl_persistence_repo=>ty_repo-key
-      RAISING   zcx_abapgit_exception lcx_cancel.
+      RAISING   zcx_abapgit_exception zcx_abapgit_cancel.
 
     CLASS-METHODS refresh_local_checksums
       IMPORTING iv_key TYPE lcl_persistence_repo=>ty_repo-key
-      RAISING   zcx_abapgit_exception lcx_cancel.
+      RAISING   zcx_abapgit_exception zcx_abapgit_cancel.
 
     CLASS-METHODS toggle_favorite
       IMPORTING iv_key TYPE lcl_persistence_repo=>ty_repo-key
@@ -40034,7 +40023,7 @@ CLASS lcl_services_repo DEFINITION FINAL.
 
     CLASS-METHODS transport_to_branch
       IMPORTING iv_repository_key TYPE lcl_persistence_db=>ty_value
-      RAISING   zcx_abapgit_exception lcx_cancel.
+      RAISING   zcx_abapgit_exception zcx_abapgit_cancel.
 
 ENDCLASS. "lcl_services_repo
 
@@ -40048,7 +40037,7 @@ CLASS lcl_services_repo IMPLEMENTATION.
 
     ls_popup = lcl_popups=>repo_popup( iv_url ).
     IF ls_popup-cancel = abap_true.
-      RAISE EXCEPTION TYPE lcx_cancel.
+      RAISE EXCEPTION TYPE zcx_abapgit_cancel.
     ENDIF.
 
     lo_repo = lcl_app=>repo_srv( )->new_online(
@@ -40099,7 +40088,7 @@ CLASS lcl_services_repo IMPLEMENTATION.
       display_cancel_button = abap_false ).                 "#EC NOTEXT
 
     IF lv_answer = '2'.
-      RAISE EXCEPTION TYPE lcx_cancel.
+      RAISE EXCEPTION TYPE zcx_abapgit_cancel.
     ENDIF.
 
     lcl_app=>repo_srv( )->delete( lo_repo ).
@@ -40142,7 +40131,7 @@ CLASS lcl_services_repo IMPLEMENTATION.
         display_cancel_button = abap_false ).               "#EC NOTEXT
 
       IF lv_answer = '2'.
-        RAISE EXCEPTION TYPE lcx_cancel.
+        RAISE EXCEPTION TYPE zcx_abapgit_cancel.
       ENDIF.
 
       lcl_objects=>delete( lt_tadir ).
@@ -40162,7 +40151,7 @@ CLASS lcl_services_repo IMPLEMENTATION.
 
     ls_popup  = lcl_popups=>repo_new_offline( ).
     IF ls_popup-cancel = abap_true.
-      RAISE EXCEPTION TYPE lcx_cancel.
+      RAISE EXCEPTION TYPE zcx_abapgit_cancel.
     ENDIF.
 
     lo_repo = lcl_app=>repo_srv( )->new_offline(
@@ -40191,7 +40180,7 @@ CLASS lcl_services_repo IMPLEMENTATION.
       display_cancel_button = abap_false ).                 "#EC NOTEXT
 
     IF lv_answer = '2'.
-      RAISE EXCEPTION TYPE lcx_cancel.
+      RAISE EXCEPTION TYPE zcx_abapgit_cancel.
     ENDIF.
 
     lcl_app=>repo_srv( )->switch_repo_type( iv_key = iv_key  iv_offline = abap_true ).
@@ -40212,7 +40201,7 @@ CLASS lcl_services_repo IMPLEMENTATION.
       iv_package        = lcl_app=>repo_srv( )->get( iv_key )->get_package( )
       iv_freeze_package = abap_true ).
     IF ls_popup-cancel = abap_true.
-      RAISE EXCEPTION TYPE lcx_cancel.
+      RAISE EXCEPTION TYPE zcx_abapgit_cancel.
     ENDIF.
 
     lcl_app=>repo_srv( )->switch_repo_type( iv_key = iv_key  iv_offline = abap_false ).
@@ -40238,7 +40227,7 @@ CLASS lcl_services_repo IMPLEMENTATION.
       iv_package        = lo_repo->get_package( )
       iv_freeze_package = abap_true ).
     IF ls_popup-cancel = abap_true.
-      RAISE EXCEPTION TYPE lcx_cancel.
+      RAISE EXCEPTION TYPE zcx_abapgit_cancel.
     ENDIF.
 
     lo_repo ?= lcl_app=>repo_srv( )->get( iv_key ).
@@ -40280,7 +40269,7 @@ CLASS lcl_services_repo IMPLEMENTATION.
       display_cancel_button = abap_false ).                 "#EC NOTEXT
 
     IF lv_answer = '2'.
-      RAISE EXCEPTION TYPE lcx_cancel.
+      RAISE EXCEPTION TYPE zcx_abapgit_cancel.
     ENDIF.
 
     lo_repo->rebuild_local_checksums( ).
@@ -40364,10 +40353,10 @@ CLASS lcl_services_abapgit DEFINITION FINAL.
       RAISING zcx_abapgit_exception.
 
     CLASS-METHODS install_abapgit
-      RAISING zcx_abapgit_exception lcx_cancel.
+      RAISING zcx_abapgit_exception zcx_abapgit_cancel.
 
     CLASS-METHODS install_abapgit_pi
-      RAISING zcx_abapgit_exception lcx_cancel.
+      RAISING zcx_abapgit_exception zcx_abapgit_cancel.
 
     CLASS-METHODS is_installed
       RETURNING VALUE(rv_installed) TYPE abap_bool.
@@ -40534,7 +40523,7 @@ CLASS lcl_services_db DEFINITION FINAL.
 
     CLASS-METHODS delete
       IMPORTING is_key TYPE lcl_persistence_db=>ty_content
-      RAISING   zcx_abapgit_exception lcx_cancel.
+      RAISING   zcx_abapgit_exception zcx_abapgit_cancel.
 
     CLASS-METHODS update
       IMPORTING is_content TYPE lcl_persistence_db=>ty_content
@@ -40562,7 +40551,7 @@ CLASS lcl_services_db IMPLEMENTATION.
       display_cancel_button = abap_false ).                 "#EC NOTEXT
 
     IF lv_answer = '2'.
-      RAISE EXCEPTION TYPE lcx_cancel.
+      RAISE EXCEPTION TYPE zcx_abapgit_cancel.
     ENDIF.
 
     lcl_app=>db( )->delete(
@@ -42585,7 +42574,7 @@ INTERFACE lif_gui_page.
               it_postdata  TYPE cnht_post_data_tab OPTIONAL
     EXPORTING ei_page      TYPE REF TO lif_gui_page
               ev_state     TYPE i
-    RAISING   zcx_abapgit_exception lcx_cancel.
+    RAISING   zcx_abapgit_exception zcx_abapgit_cancel.
 
   METHODS render
     RETURNING VALUE(ro_html) TYPE REF TO lcl_html
@@ -47018,7 +47007,7 @@ CLASS lcl_gui_page_db_dis IMPLEMENTATION.
         lv_data = lcl_app=>db( )->read(
           iv_type = ms_key-type
           iv_value = ms_key-value ).
-      CATCH lcx_not_found ##NO_HANDLER.
+      CATCH zcx_abapgit_not_found ##NO_HANDLER.
     ENDTRY.
 
     " Create syntax highlighter
@@ -47079,7 +47068,7 @@ CLASS lcl_gui_page_db_edit IMPLEMENTATION.
         lv_data = lcl_app=>db( )->read(
           iv_type  = ms_key-type
           iv_value = ms_key-value ).
-      CATCH lcx_not_found ##NO_HANDLER.
+      CATCH zcx_abapgit_not_found ##NO_HANDLER.
     ENDTRY.
 
     lcl_app=>db( )->lock(
@@ -49266,7 +49255,7 @@ CLASS lcl_gui_router DEFINITION FINAL.
                 it_postdata  TYPE cnht_post_data_tab OPTIONAL
       EXPORTING ei_page      TYPE REF TO lif_gui_page
                 ev_state     TYPE i
-      RAISING   zcx_abapgit_exception lcx_cancel.
+      RAISING   zcx_abapgit_exception zcx_abapgit_cancel.
 
   PRIVATE SECTION.
 
@@ -49304,7 +49293,7 @@ CLASS lcl_gui_router DEFINITION FINAL.
 
     METHODS get_page_playground
       RETURNING VALUE(ri_page) TYPE REF TO lif_gui_page
-      RAISING   zcx_abapgit_exception lcx_cancel.
+      RAISING   zcx_abapgit_exception zcx_abapgit_cancel.
 
 ENDCLASS.
 
@@ -49622,7 +49611,7 @@ CLASS lcl_gui_router IMPLEMENTATION.
     lcl_popups=>run_page_class_popup( IMPORTING ev_name   = lv_class_name
                                                 ev_cancel = lv_cancel ).
     IF lv_cancel = abap_true.
-      RAISE EXCEPTION TYPE lcx_cancel.
+      RAISE EXCEPTION TYPE zcx_abapgit_cancel.
     ENDIF.
 
     TRY.
@@ -49777,7 +49766,7 @@ CLASS lcl_gui IMPLEMENTATION.
       CATCH zcx_abapgit_exception INTO lx_exception.
         ROLLBACK WORK.
         MESSAGE lx_exception->text TYPE 'S' DISPLAY LIKE 'E'.
-      CATCH lcx_cancel ##NO_HANDLER.
+      CATCH zcx_abapgit_cancel ##NO_HANDLER.
         " Do nothing = gc_event_state-no_more_act
     ENDTRY.
 
@@ -54878,5 +54867,5 @@ AT SELECTION-SCREEN.
   ENDIF.
 
 ****************************************************
-* abapmerge - 2017-10-29T06:11:58.388Z
+* abapmerge - 2017-10-29T06:15:49.862Z
 ****************************************************
