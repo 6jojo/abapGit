@@ -4025,6 +4025,7 @@ CLASS lcl_persistence_user DEFINITION DEFERRED.
 CLASS lcl_repo_srv DEFINITION DEFERRED.
 CLASS lcl_persistence_db DEFINITION DEFERRED.
 CLASS lcl_persist_settings DEFINITION DEFERRED.
+CLASS lcl_proxy_configuration DEFINITION DEFERRED.
 
 *----------------------------------------------------------------------*
 *       CLASS lcl_app DEFINITION
@@ -4050,12 +4051,16 @@ CLASS lcl_app DEFINITION FINAL.
     CLASS-METHODS settings
       RETURNING VALUE(ro_settings) TYPE REF TO lcl_persist_settings.
 
+    CLASS-METHODS proxy
+      RETURNING VALUE(ro_proxy) TYPE REF TO lcl_proxy_configuration.
+
   PRIVATE SECTION.
     CLASS-DATA: go_gui          TYPE REF TO lcl_gui,
                 go_current_user TYPE REF TO lcl_persistence_user,
                 go_db           TYPE REF TO lcl_persistence_db,
                 go_repo_srv     TYPE REF TO lcl_repo_srv,
-                go_settings     TYPE REF TO lcl_persist_settings.
+                go_settings     TYPE REF TO lcl_persist_settings,
+                go_proxy        TYPE REF TO lcl_proxy_configuration.
 
 ENDCLASS.   "lcl_app
 
@@ -4721,8 +4726,9 @@ CLASS lcl_persist_settings DEFINITION FINAL.
     METHODS read
       RETURNING
         VALUE(ro_settings) TYPE REF TO lcl_settings.
-  PRIVATE SECTION.
 
+  PRIVATE SECTION.
+    DATA: mo_settings TYPE REF TO lcl_settings.
 
 ENDCLASS.
 
@@ -6228,15 +6234,30 @@ CLASS lcl_persist_settings IMPLEMENTATION.
 
   METHOD modify.
 
+    DATA: settings TYPE string.
+    settings = io_settings->get_settings_xml( ).
+
     lcl_app=>db( )->modify(
       iv_type       = lcl_settings=>c_dbtype_settings
       iv_value      = ''
-      iv_data       = io_settings->get_settings_xml( ) ).
+      iv_data       = settings ).
+
+    " Settings have been modified: Update Buffered Settings
+    IF mo_settings IS BOUND.
+      mo_settings->set_xml_settings( settings ).
+    ENDIF.
 
   ENDMETHOD.
 
   METHOD read.
 
+    IF mo_settings IS BOUND.
+      " Return Buffered Settings
+      ro_settings = mo_settings.
+      RETURN.
+    ENDIF.
+
+    " Settings have changed or have not yet been loaded
     CREATE OBJECT ro_settings.
 
     TRY.
@@ -6250,6 +6271,8 @@ CLASS lcl_persist_settings IMPLEMENTATION.
         ro_settings->set_defaults( ).
 
     ENDTRY.
+
+    mo_settings = ro_settings.
 
   ENDMETHOD.
 
@@ -7251,7 +7274,17 @@ INTERFACE lif_exit.
     change_local_host
       CHANGING ct_hosts TYPE zif_abapgit_definitions=>ty_icm_sinfo2_tt,
     allow_sap_objects
-      RETURNING VALUE(rv_allowed) TYPE abap_bool.
+      RETURNING VALUE(rv_allowed) TYPE abap_bool,
+    change_proxy_url
+      IMPORTING iv_repo_url TYPE csequence
+      CHANGING  c_proxy_url TYPE string,
+    change_proxy_port
+      IMPORTING iv_repo_url  TYPE csequence
+      CHANGING  c_proxy_port TYPE string,
+    change_proxy_authentication
+      IMPORTING iv_repo_url            TYPE csequence
+      CHANGING  c_proxy_authentication TYPE abap_bool.
+
 
 ENDINTERFACE.
 
@@ -7289,6 +7322,108 @@ CLASS lcl_exit IMPLEMENTATION.
 
   METHOD lif_exit~allow_sap_objects.
     rv_allowed = abap_false.
+  ENDMETHOD.
+
+
+  METHOD lif_exit~change_proxy_url.
+* default behavior change nothing
+    RETURN.
+  ENDMETHOD.
+
+  METHOD lif_exit~change_proxy_port.
+* default behavior change nothing
+    RETURN.
+  ENDMETHOD.
+
+  METHOD lif_exit~change_proxy_authentication.
+* default behavior change nothing
+    RETURN.
+  ENDMETHOD.
+
+ENDCLASS.
+
+
+****************************************************
+* abapmerge - ZABAPGIT_PROXY
+****************************************************
+*&---------------------------------------------------------------------*
+*& Include zabapgit_proxy
+*&---------------------------------------------------------------------*
+
+CLASS lcl_proxy_configuration DEFINITION CREATE PUBLIC.
+
+  PUBLIC SECTION.
+    METHODS:
+      constructor,
+
+      get_proxy_url
+        IMPORTING
+          iv_repo_url         TYPE csequence OPTIONAL
+        RETURNING
+          VALUE(rv_proxy_url) TYPE string,
+
+      get_proxy_port
+        IMPORTING
+          iv_repo_url    TYPE csequence OPTIONAL
+        RETURNING
+          VALUE(rv_port) TYPE string,
+
+      get_proxy_authentication
+        IMPORTING
+          iv_repo_url    TYPE csequence OPTIONAL
+        RETURNING
+          VALUE(rv_auth) TYPE abap_bool.
+
+  PRIVATE SECTION.
+    DATA: mo_settings TYPE REF TO lcl_settings,
+          mi_exit     TYPE REF TO lif_exit.
+
+ENDCLASS.
+
+CLASS lcl_proxy_configuration IMPLEMENTATION.
+
+  METHOD constructor.
+
+    mo_settings = lcl_app=>settings( )->read( ).
+
+    mi_exit = lcl_exit=>get_instance( ).
+
+  ENDMETHOD.
+
+  METHOD get_proxy_url.
+
+    rv_proxy_url = mo_settings->get_proxy_url( ).
+
+    mi_exit->change_proxy_url(
+      EXPORTING
+        iv_repo_url = iv_repo_url
+      CHANGING
+        c_proxy_url = rv_proxy_url ).
+
+  ENDMETHOD.
+
+  METHOD get_proxy_port.
+
+    rv_port = mo_settings->get_proxy_port( ).
+
+    mi_exit->change_proxy_port(
+      EXPORTING
+        iv_repo_url  = iv_repo_url
+      CHANGING
+        c_proxy_port = rv_port ).
+
+  ENDMETHOD.
+
+  METHOD get_proxy_authentication.
+
+    rv_auth = mo_settings->get_proxy_authentication( ).
+
+    mi_exit->change_proxy_authentication(
+      EXPORTING
+        iv_repo_url            = iv_repo_url
+      CHANGING
+        c_proxy_authentication = rv_auth ).
+
   ENDMETHOD.
 
 ENDCLASS.
@@ -9199,17 +9334,18 @@ CLASS lcl_2fa_github_auth IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD is_2fa_required.
-    DATA: li_client   TYPE REF TO if_http_client,
-          lo_settings TYPE REF TO lcl_settings.
 
-    lo_settings = lcl_app=>settings( )->read( ).
+    DATA: li_client TYPE REF TO if_http_client,
+          lo_proxy  TYPE REF TO lcl_proxy_configuration.
+
+    lo_proxy = lcl_app=>proxy( ).
 
     cl_http_client=>create_by_url(
       EXPORTING
         url                = gc_github_api_url
         ssl_id             = 'ANONYM'
-        proxy_host         = lo_settings->get_proxy_url( )
-        proxy_service      = lo_settings->get_proxy_port( )
+        proxy_host         = lo_proxy->get_proxy_url( )
+        proxy_service      = lo_proxy->get_proxy_port(  )
       IMPORTING
         client             = li_client
       EXCEPTIONS
@@ -9973,21 +10109,20 @@ CLASS lcl_http IMPLEMENTATION.
 
   METHOD create_by_url.
 
-    DATA: lv_uri      TYPE string,
-          lv_scheme   TYPE string,
-          li_client   TYPE REF TO if_http_client,
-          lo_settings TYPE REF TO lcl_settings,
-          lv_text     TYPE string.
+    DATA: lv_uri    TYPE string,
+          lv_scheme TYPE string,
+          li_client TYPE REF TO if_http_client,
+          lo_proxy_configuration  TYPE REF TO lcl_proxy_configuration,
+          lv_text   TYPE string.
 
-
-    lo_settings = lcl_app=>settings( )->read( ).
+    lo_proxy_configuration = lcl_app=>proxy( ).
 
     cl_http_client=>create_by_url(
       EXPORTING
         url           = lcl_url=>host( iv_url )
         ssl_id        = 'ANONYM'
-        proxy_host    = lo_settings->get_proxy_url( )
-        proxy_service = lo_settings->get_proxy_port( )
+        proxy_host    = lo_proxy_configuration->get_proxy_url( iv_url )
+        proxy_service = lo_proxy_configuration->get_proxy_port( iv_url )
       IMPORTING
         client        = li_client
       EXCEPTIONS
@@ -10008,7 +10143,7 @@ CLASS lcl_http IMPLEMENTATION.
       zcx_abapgit_exception=>raise( lv_text ).
     ENDIF.
 
-    IF lo_settings->get_proxy_authentication( ) = abap_true.
+    IF lo_proxy_configuration->get_proxy_authentication( iv_url ) = abap_true.
       lcl_proxy_auth=>run( li_client ).
     ENDIF.
 
@@ -50022,6 +50157,13 @@ CLASS lcl_app IMPLEMENTATION.
     ro_settings = go_settings.
   ENDMETHOD.
 
+  METHOD proxy.
+    IF go_proxy IS NOT BOUND.
+      CREATE OBJECT go_proxy.
+    ENDIF.
+    ro_proxy = go_proxy.
+  ENDMETHOD.
+
 ENDCLASS.   "lcl_app
 
 
@@ -54867,5 +55009,5 @@ AT SELECTION-SCREEN.
   ENDIF.
 
 ****************************************************
-* abapmerge - 2017-10-29T06:15:49.862Z
+* abapmerge - 2017-10-29T07:19:28.734Z
 ****************************************************
