@@ -23319,7 +23319,7 @@ CLASS lcl_object_enhs_hook_def DEFINITION.
     INTERFACES: lif_object_enhs.
 
   PRIVATE SECTION.
-    TYPES: BEGIN OF ty_hook_def,
+    TYPES: BEGIN OF ty_hook_defifnition,
              pgmid     TYPE pgmid,
              obj_name  TYPE trobj_name,
              obj_type  TYPE trobjtype,
@@ -23327,7 +23327,7 @@ CLASS lcl_object_enhs_hook_def DEFINITION.
              main_name TYPE eu_aname,
              program   TYPE progname,
              def_hooks TYPE enh_hook_def_ext_it,
-           END OF ty_hook_def.
+           END OF ty_hook_defifnition.
 
 ENDCLASS.
 
@@ -23597,7 +23597,7 @@ CLASS lcl_object_enhs_hook_def IMPLEMENTATION.
 
     DATA: lv_enh_shorttext       TYPE string,
           ls_enh_hook_definition TYPE enh_hook_def,
-          ls_hook_definition     TYPE ty_hook_def,
+          ls_hook_definition     TYPE ty_hook_defifnition,
           li_enh_object          TYPE REF TO if_enh_object,
           li_enh_object_docu     TYPE REF TO if_enh_object_docu,
           lo_hookdef_tool        TYPE REF TO cl_enh_tool_hook_def,
@@ -23620,6 +23620,13 @@ CLASS lcl_object_enhs_hook_def IMPLEMENTATION.
 
         lo_hookdef_tool ?= ii_enh_spot_tool.
 
+        lo_hookdef_tool->set_original_object( pgmid     = ls_hook_definition-pgmid
+                                              obj_name  = ls_hook_definition-obj_name
+                                              obj_type  = ls_hook_definition-obj_type
+                                              program   = ls_hook_definition-program
+                                              main_type = ls_hook_definition-main_type
+                                              main_name = ls_hook_definition-main_name ).
+
         LOOP AT ls_hook_definition-def_hooks ASSIGNING <ls_hook_definition>.
           MOVE-CORRESPONDING <ls_hook_definition> TO ls_enh_hook_definition.
           lo_hookdef_tool->add_hook_def( ls_enh_hook_definition ).
@@ -23641,8 +23648,7 @@ CLASS lcl_object_enhs_hook_def IMPLEMENTATION.
     DATA: lo_hookdef_tool    TYPE REF TO cl_enh_tool_hook_def,
           lv_enh_shorttext   TYPE string,
           li_enh_object_docu TYPE REF TO if_enh_object_docu,
-          lv_include_bound   TYPE enhboolean,
-          ls_hook_definition TYPE ty_hook_def.
+          ls_hook_definition TYPE ty_hook_defifnition.
 
     lo_hookdef_tool ?= ii_enh_spot_tool.
 
@@ -23650,7 +23656,6 @@ CLASS lcl_object_enhs_hook_def IMPLEMENTATION.
     lv_enh_shorttext = li_enh_object_docu->get_shorttext( ).
 
     ls_hook_definition-def_hooks = lo_hookdef_tool->get_hook_defs( ).
-    lv_include_bound = lo_hookdef_tool->get_include_bound( ).
 
     lo_hookdef_tool->get_original_object(
       IMPORTING
@@ -55207,5 +55212,5 @@ AT SELECTION-SCREEN.
   ENDIF.
 
 ****************************************************
-* abapmerge - 2017-11-05T08:48:20.806Z
+* abapmerge - 2017-11-05T10:11:47.446Z
 ****************************************************
