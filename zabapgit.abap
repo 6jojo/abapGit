@@ -15645,7 +15645,7 @@ CLASS lcl_popups IMPLEMENTATION.
       lv_finished = abap_true.
 
       TRY.
-          lcl_url=>name( |{ iv_url }| ).
+          lcl_url=>name( |{ lv_url }| ).
           IF iv_freeze_package = abap_false.
             lcl_app=>repo_srv( )->validate_package( iv_package ).
           ENDIF.
@@ -55452,5 +55452,5 @@ AT SELECTION-SCREEN.
   ENDIF.
 
 ****************************************************
-* abapmerge - 2017-11-11T09:46:34.962Z
+* abapmerge - 2017-11-11T09:50:56.078Z
 ****************************************************
