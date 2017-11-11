@@ -15647,7 +15647,7 @@ CLASS lcl_popups IMPLEMENTATION.
       TRY.
           lcl_url=>name( |{ lv_url }| ).
           IF iv_freeze_package = abap_false.
-            lcl_app=>repo_srv( )->validate_package( iv_package ).
+            lcl_app=>repo_srv( )->validate_package( lv_package ).
           ENDIF.
         CATCH zcx_abapgit_exception INTO lx_error.
           MESSAGE lx_error->text TYPE 'S' DISPLAY LIKE 'E'.
@@ -55452,5 +55452,5 @@ AT SELECTION-SCREEN.
   ENDIF.
 
 ****************************************************
-* abapmerge - 2017-11-11T09:50:56.078Z
+* abapmerge - 2017-11-11T09:52:45.440Z
 ****************************************************
