@@ -15175,14 +15175,7 @@ CLASS lcl_popups DEFINITION FINAL.
         EXPORTING
           ev_url     TYPE abaptxt255-line
           ev_package TYPE tdevc-devclass
-          ev_branch  TYPE textl-line,
-
-      validate
-        IMPORTING
-          iv_package TYPE tdevc-devclass
-          iv_url     TYPE abaptxt255-line
-        RAISING
-          zcx_abapgit_exception.
+          ev_branch  TYPE textl-line.
 
 ENDCLASS.
 
@@ -15652,9 +15645,10 @@ CLASS lcl_popups IMPLEMENTATION.
       lv_finished = abap_true.
 
       TRY.
-          validate( iv_url     = lv_url
-                    iv_package = lv_package ).
-
+          lcl_url=>name( |{ iv_url }| ).
+          IF iv_freeze_package = abap_false.
+            lcl_app=>repo_srv( )->validate_package( iv_package ).
+          ENDIF.
         CATCH zcx_abapgit_exception INTO lx_error.
           MESSAGE lx_error->text TYPE 'S' DISPLAY LIKE 'E'.
           " in case of validation errors we display the popup again
@@ -16086,14 +16080,6 @@ CLASS lcl_popups IMPLEMENTATION.
     READ TABLE it_fields INDEX 3 ASSIGNING <ls_field>.
     ASSERT sy-subrc = 0.
     ev_branch = <ls_field>-value.
-
-  ENDMETHOD.
-
-
-  METHOD validate.
-
-    lcl_url=>name( |{ iv_url }| ).
-    lcl_app=>repo_srv( )->validate_package( iv_package ).
 
   ENDMETHOD.
 
@@ -55212,5 +55198,5 @@ AT SELECTION-SCREEN.
   ENDIF.
 
 ****************************************************
-* abapmerge - 2017-11-09T18:38:58.075Z
+* abapmerge - 2017-11-11T09:24:40.902Z
 ****************************************************
