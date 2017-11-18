@@ -99,6 +99,7 @@ CLASS zcx_abapgit_not_found IMPLEMENTATION.
 ENDCLASS.
 
 CLASS zcl_abapgit_time DEFINITION DEFERRED.
+CLASS zcl_abapgit_url DEFINITION DEFERRED.
 CLASS zcl_abapgit_default_task DEFINITION DEFERRED.
 CLASS zcl_abapgit_dependencies DEFINITION DEFERRED.
 CLASS zcl_abapgit_syntax_check DEFINITION DEFERRED.
@@ -385,6 +386,50 @@ CLASS zcl_abapgit_time DEFINITION
     CONSTANTS: c_epoch TYPE datum VALUE '19700101'.
 
 ENDCLASS.
+CLASS zcl_abapgit_url DEFINITION
+  FINAL
+  CREATE PUBLIC .
+
+  PUBLIC SECTION.
+
+    CLASS-METHODS:
+      host
+        IMPORTING
+          !iv_repo       TYPE string
+        RETURNING
+          VALUE(rv_host) TYPE string
+        RAISING
+          zcx_abapgit_exception,
+
+      name
+        IMPORTING
+          !iv_repo       TYPE string
+        RETURNING
+          VALUE(rv_name) TYPE string
+        RAISING
+          zcx_abapgit_exception,
+
+      path_name
+        IMPORTING
+          !iv_repo            TYPE string
+        RETURNING
+          VALUE(rv_path_name) TYPE string
+        RAISING
+          zcx_abapgit_exception .
+
+  PRIVATE SECTION.
+    CLASS-METHODS:
+      regex
+        IMPORTING
+          !iv_repo TYPE string
+        EXPORTING
+          !ev_host TYPE string
+          !ev_path TYPE string
+          !ev_name TYPE string
+        RAISING
+          zcx_abapgit_exception .
+
+ENDCLASS.
 CLASS zcl_abapgit_default_task DEFINITION
   FINAL
   CREATE PUBLIC .
@@ -616,6 +661,43 @@ CLASS ZCL_ABAPGIT_TIME IMPLEMENTATION.
     rv_time+12 = lv_utcdiff.
 
   ENDMETHOD.                    "get
+ENDCLASS.
+
+CLASS zcl_abapgit_url IMPLEMENTATION.
+
+  METHOD host.
+
+    regex( EXPORTING iv_repo = iv_repo
+           IMPORTING ev_host = rv_host ).
+
+  ENDMETHOD.
+
+  METHOD name.
+
+    regex( EXPORTING iv_repo = iv_repo
+           IMPORTING ev_name = rv_name ).
+
+  ENDMETHOD.
+
+  METHOD path_name.
+
+    DATA: lv_host TYPE string ##NEEDED.
+
+    FIND REGEX '(.*://[^/]*)(.*)' IN iv_repo
+      SUBMATCHES lv_host rv_path_name.
+
+  ENDMETHOD.
+
+  METHOD regex.
+
+    FIND REGEX '(.*://[^/]*)(.*/)([^\.]*)[\.git]?' IN iv_repo
+      SUBMATCHES ev_host ev_path ev_name.
+    IF sy-subrc <> 0.
+      zcx_abapgit_exception=>raise( 'Malformed URL' ).
+    ENDIF.
+
+  ENDMETHOD.
+
 ENDCLASS.
 
 CLASS zcl_abapgit_default_task IMPLEMENTATION.
@@ -3166,77 +3248,6 @@ CLASS lcl_path IMPLEMENTATION.
 ENDCLASS. "lcl_path
 
 *----------------------------------------------------------------------*
-*       CLASS lcl_url DEFINITION
-*----------------------------------------------------------------------*
-*
-*----------------------------------------------------------------------*
-CLASS lcl_url DEFINITION FINAL.
-
-  PUBLIC SECTION.
-    CLASS-METHODS host
-      IMPORTING iv_repo        TYPE string
-      RETURNING VALUE(rv_host) TYPE string
-      RAISING   zcx_abapgit_exception.
-
-    CLASS-METHODS name
-      IMPORTING iv_repo        TYPE string
-      RETURNING VALUE(rv_name) TYPE string
-      RAISING   zcx_abapgit_exception.
-
-    CLASS-METHODS path_name
-      IMPORTING iv_repo             TYPE string
-      RETURNING VALUE(rv_path_name) TYPE string
-      RAISING   zcx_abapgit_exception.
-
-  PRIVATE SECTION.
-    CLASS-METHODS regex
-      IMPORTING iv_repo TYPE string
-      EXPORTING ev_host TYPE string
-                ev_path TYPE string
-                ev_name TYPE string
-      RAISING   zcx_abapgit_exception.
-
-ENDCLASS.                    "lcl_repo DEFINITION
-
-*----------------------------------------------------------------------*
-*       CLASS lcl_url IMPLEMENTATION
-*----------------------------------------------------------------------*
-*
-*----------------------------------------------------------------------*
-CLASS lcl_url IMPLEMENTATION.
-
-  METHOD host.
-    regex( EXPORTING iv_repo = iv_repo
-           IMPORTING ev_host = rv_host ).
-  ENDMETHOD.                    "host
-
-  METHOD name.
-    regex( EXPORTING iv_repo = iv_repo
-           IMPORTING ev_name = rv_name ).
-  ENDMETHOD.                    "short_name
-
-  METHOD path_name.
-
-    DATA: lv_host TYPE string ##NEEDED.
-
-    FIND REGEX '(.*://[^/]*)(.*)' IN iv_repo
-      SUBMATCHES lv_host rv_path_name.
-
-  ENDMETHOD.                    "path_name
-
-  METHOD regex.
-
-    FIND REGEX '(.*://[^/]*)(.*/)([^\.]*)[\.git]?' IN iv_repo
-      SUBMATCHES ev_host ev_path ev_name.
-    IF sy-subrc <> 0.
-      zcx_abapgit_exception=>raise( 'Malformed URL' ).
-    ENDIF.
-
-  ENDMETHOD.                    "url
-
-ENDCLASS.                    "lcl_repo IMPLEMENTATION
-
-*----------------------------------------------------------------------*
 *       CLASS lcl_diff DEFINITION
 *----------------------------------------------------------------------*
 *
@@ -3649,7 +3660,7 @@ CLASS lcl_login_manager IMPLEMENTATION.
     DATA: ls_auth LIKE LINE OF gt_auth.
 
 
-    READ TABLE gt_auth INTO ls_auth WITH KEY uri = lcl_url=>host( iv_uri ).
+    READ TABLE gt_auth INTO ls_auth WITH KEY uri = zcl_abapgit_url=>host( iv_uri ).
     IF sy-subrc = 0.
       rv_authorization = ls_auth-authorization.
 
@@ -3682,11 +3693,11 @@ CLASS lcl_login_manager IMPLEMENTATION.
     FIELD-SYMBOLS: <ls_auth> LIKE LINE OF gt_auth.
 
 
-    READ TABLE gt_auth WITH KEY uri = lcl_url=>host( iv_uri )
+    READ TABLE gt_auth WITH KEY uri = zcl_abapgit_url=>host( iv_uri )
       TRANSPORTING NO FIELDS.
     IF sy-subrc <> 0.
       APPEND INITIAL LINE TO gt_auth ASSIGNING <ls_auth>.
-      <ls_auth>-uri           = lcl_url=>host( iv_uri ).
+      <ls_auth>-uri           = zcl_abapgit_url=>host( iv_uri ).
       <ls_auth>-authorization = iv_auth.
     ENDIF.
 
@@ -10183,7 +10194,7 @@ CLASS lcl_http_client IMPLEMENTATION.
         name  = '~request_method'
         value = 'POST' ).
 
-    lv_value = lcl_url=>path_name( iv_url ) &&
+    lv_value = zcl_abapgit_url=>path_name( iv_url ) &&
       '/git-' &&
       iv_service &&
       '-pack'.
@@ -10439,7 +10450,7 @@ CLASS lcl_http IMPLEMENTATION.
 
     cl_http_client=>create_by_url(
       EXPORTING
-        url           = lcl_url=>host( iv_url )
+        url           = zcl_abapgit_url=>host( iv_url )
         ssl_id        = 'ANONYM'
         proxy_host    = lo_proxy_configuration->get_proxy_url( iv_url )
         proxy_service = lo_proxy_configuration->get_proxy_port( iv_url )
@@ -10482,7 +10493,7 @@ CLASS lcl_http IMPLEMENTATION.
     li_client->request->set_header_field(
         name  = 'user-agent'
         value = get_agent( ) ).                             "#EC NOTEXT
-    lv_uri = lcl_url=>path_name( iv_url ) &&
+    lv_uri = zcl_abapgit_url=>path_name( iv_url ) &&
              '/info/refs?service=git-' &&
              iv_service &&
              '-pack'.
@@ -15965,7 +15976,7 @@ CLASS lcl_popups IMPLEMENTATION.
       lv_finished = abap_true.
 
       TRY.
-          lcl_url=>name( |{ lv_url }| ).
+          zcl_abapgit_url=>name( |{ lv_url }| ).
           IF iv_freeze_package = abap_false.
             lcl_app=>repo_srv( )->validate_package( lv_package ).
           ENDIF.
@@ -39710,7 +39721,7 @@ CLASS lcl_repo IMPLEMENTATION.
     IF ms_data-offline = abap_true.
       rv_name = ms_data-url.
     ELSE.
-      rv_name = lcl_url=>name( ms_data-url ).
+      rv_name = zcl_abapgit_url=>name( ms_data-url ).
       rv_name = cl_http_utility=>if_http_utility~unescape_url( rv_name ).
     ENDIF.
 
@@ -39998,7 +40009,7 @@ CLASS lcl_repo_srv IMPLEMENTATION.
 
     IF iv_offline = abap_true. " On-line -> OFFline
       lo_repo->set(
-        iv_url         = lcl_url=>name( lo_repo->ms_data-url )
+        iv_url         = zcl_abapgit_url=>name( lo_repo->ms_data-url )
         iv_branch_name = ''
         iv_sha1        = ''
         iv_head_branch = ''
@@ -48137,7 +48148,7 @@ CLASS lcl_gui_page_db IMPLEMENTATION.
           IN is_data-data_str IGNORING CASE MATCH COUNT lv_cnt.
         IF lv_cnt > 0.
           rv_text = |<strong>On-line</strong>, Name: <strong>{
-                    lcl_url=>name( rv_text ) }</strong>|.
+                    zcl_abapgit_url=>name( rv_text ) }</strong>|.
         ELSE.
           rv_text = |Off-line, Name: <strong>{ rv_text }</strong>|.
         ENDIF.
@@ -51781,7 +51792,7 @@ CLASS ltcl_url IMPLEMENTATION.
   METHOD repo_error.
 
     TRY.
-        lcl_url=>host( 'not a real url' ).                  "#EC NOTEXT
+        zcl_abapgit_url=>host( 'not a real url' ).                  "#EC NOTEXT
         cl_abap_unit_assert=>fail( ).
       CATCH zcx_abapgit_exception.                      "#EC NO_HANDLER
     ENDTRY.
@@ -51792,7 +51803,7 @@ CLASS ltcl_url IMPLEMENTATION.
 
     DATA: lv_host TYPE string.
 
-    lv_host = lcl_url=>host( 'https://github.com/larshp/Foobar.git' ).
+    lv_host = zcl_abapgit_url=>host( 'https://github.com/larshp/Foobar.git' ).
 
     cl_abap_unit_assert=>assert_equals(
         exp = 'https://github.com'
@@ -51804,7 +51815,7 @@ CLASS ltcl_url IMPLEMENTATION.
 
     DATA: lv_name TYPE string.
 
-    lv_name = lcl_url=>name( 'https://github.com/larshp/Foobar.git' ).
+    lv_name = zcl_abapgit_url=>name( 'https://github.com/larshp/Foobar.git' ).
 
     cl_abap_unit_assert=>assert_equals(
         exp = 'Foobar'
@@ -51816,7 +51827,7 @@ CLASS ltcl_url IMPLEMENTATION.
 
     DATA: lv_name TYPE string.
 
-    lv_name = lcl_url=>name( 'https://git.hanatrial.ondemand.com/p12345trial/yay' ).
+    lv_name = zcl_abapgit_url=>name( 'https://git.hanatrial.ondemand.com/p12345trial/yay' ).
 
     cl_abap_unit_assert=>assert_equals(
         exp = 'yay'
@@ -55804,5 +55815,5 @@ AT SELECTION-SCREEN.
   ENDIF.
 
 ****************************************************
-* abapmerge - 2017-11-18T08:05:48.117Z
+* abapmerge - 2017-11-18T08:10:49.534Z
 ****************************************************
